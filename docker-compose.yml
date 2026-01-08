@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  docker-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: docker-mcp-server:latest
+    container_name: docker-mcp-server
+    restart: unless-stopped
+
+    # Mount Docker socket for container management
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${STACKS_DIR:-/home/liam/docker/stacks}:/home/liam/docker/stacks
+      - ${VOLUMES_DIR:-/home/liam/docker/volumes}:/home/liam/docker/volumes
+      - ./config:/app/config:ro
+      - docker-mcp-data:/app/data
+
+    # Environment variables
+    environment:
+      # Required: Anthropic API Key for Claude Code
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+
+      # Portainer Configuration
+      - PORTAINER_URL=${PORTAINER_URL:-http://192.168.1.1:9000}
+      - PORTAINER_TOKEN=${PORTAINER_TOKEN:-}
+      - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID:-1}
+
+      # Docker Configuration
+      - DOCKER_SOCKET_PATH=/var/run/docker.sock
+      - DOCKER_DEFAULT_NETWORK=web
+
+      # Server Configuration
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Job Management
+      - MAX_JOB_AGE_HOURS=${MAX_JOB_AGE_HOURS:-24}
+      - JOB_CLEANUP_INTERVAL_MINUTES=${JOB_CLEANUP_INTERVAL_MINUTES:-60}
+
+    # Network configuration
+    networks:
+      - web
+
+    # Traefik labels for web access (optional)
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockermcp.rule=Host(`${DOCKER_MCP_DOMAIN:-dockermcp.bramleyvale.com}`)"
+      - "traefik.http.routers.dockermcp.entrypoints=web"
+      - "traefik.http.services.dockermcp.loadbalancer.server.port=8000"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # User (run as root to access Docker socket)
+    # Note: In production, consider using Docker socket proxy for better security
+    user: root
+
+volumes:
+  docker-mcp-data:
+    driver: local
+
+networks:
+  web:
+    external: true
