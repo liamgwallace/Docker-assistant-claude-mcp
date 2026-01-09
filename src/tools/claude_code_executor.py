@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 import yaml
+import os
 
 from src.config.environment import settings
 
@@ -166,6 +167,10 @@ Execute this task now and provide your response in markdown format.
             if session_id:
                 cmd_args.extend(["--resume", session_id])
 
+            # Create environment with IS_SANDBOX=1
+            env = os.environ.copy()  # Copy current environment
+            env['IS_SANDBOX'] = '1'  # Add IS_SANDBOX=1
+                        
             # Execute Claude Code CLI with the prompt
             process = await asyncio.create_subprocess_exec(
                 *cmd_args,
