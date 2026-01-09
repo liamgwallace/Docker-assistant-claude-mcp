@@ -22,7 +22,7 @@ class ClaudeCodeExecutor:
     def _load_skill_content(self) -> str:
         """Load the Docker management skill file content"""
         try:
-            with open(self.skill_file, 'r') as f:
+            with open(self.skill_file, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
             return "# Docker Management Skill\n\n[Skill file not found - using default context]"
@@ -30,7 +30,7 @@ class ClaudeCodeExecutor:
     def _load_system_config(self) -> str:
         """Load system configuration as YAML string"""
         try:
-            with open(self.config_file, 'r') as f:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
             return yaml.dump(config_data, default_flow_style=False)
         except FileNotFoundError:
@@ -39,7 +39,7 @@ class ClaudeCodeExecutor:
     def _load_template(self) -> str:
         """Load Docker Compose template"""
         try:
-            with open(self.template_file, 'r') as f:
+            with open(self.template_file, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
             return "# Template not found"
@@ -140,16 +140,19 @@ Execute this task now and provide your response in markdown format.
         try:
             # Execute Claude Code CLI with the prompt
             # Using subprocess to run the CLI
+            # Use -p (print mode) for non-interactive execution
+            # Pass prompt via stdin to avoid Windows command line length limits
             process = await asyncio.create_subprocess_exec(
                 self.cli_path,
-                "chat",
-                "--message", prompt,
+                "-p",  # Print mode for non-interactive execution
                 "--model", settings.claude_model,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
 
-            stdout, stderr = await process.communicate()
+            # Send prompt via stdin and get response
+            stdout, stderr = await process.communicate(input=prompt.encode('utf-8'))
 
             if process.returncode != 0:
                 error_msg = stderr.decode() if stderr else "Unknown error"
@@ -232,12 +235,13 @@ Unexpected error executing Claude Code CLI
         # Check Claude Code CLI exists
         try:
             result = subprocess.run(
-                [self.cli_path, "--version"],
+                [self.cli_path, "-v"],  # Use -v instead of --version
                 capture_output=True,
-                timeout=5
+                timeout=5,
+                text=True
             )
             if result.returncode != 0:
-                errors.append(f"Claude Code CLI returned error: {result.stderr.decode()}")
+                errors.append(f"Claude Code CLI returned error: {result.stderr}")
         except FileNotFoundError:
             errors.append(f"Claude Code CLI not found at: {self.cli_path}")
         except Exception as e:

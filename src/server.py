@@ -223,6 +223,10 @@ async def health_check() -> dict:
 
 
 if __name__ == "__main__":
-    # Run the MCP server
+    # Run the MCP server in HTTP mode by default
     logger.info(f"Starting Docker Management MCP Server on {settings.server_host}:{settings.server_port}")
-    mcp.run()
+    logger.info(f"HTTP mode - accessible at http://{settings.server_host}:{settings.server_port}/mcp")
+
+    # Run with HTTP transport
+    import asyncio
+    asyncio.run(mcp.run_http_async(host=settings.server_host, port=settings.server_port))
