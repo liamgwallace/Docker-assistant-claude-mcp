@@ -1,0 +1,59 @@
+# Docker Compose Template for Claude Code
+# This template should be used as a reference when generating docker-compose.yml files
+
+version: '3.8'
+
+services:
+  example_service:
+    # Image selection - determine based on user requirements
+    image: nginx:latest
+
+    # Container naming - lowercase with hyphens
+    container_name: example-service-container
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Network configuration
+    networks:
+      - web
+
+    # Traefik labels for services exposed via reverse proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.example.rule=Host(`example.bramleyvale.com`)"
+      - "traefik.http.routers.example.entrypoints=web"
+      - "traefik.http.services.example.loadbalancer.server.port=80"
+
+    # Environment variables (customize as needed)
+    environment:
+      - EXAMPLE_VAR=value
+
+    # Volume mounts (customize as needed)
+    volumes:
+      - example_data:/data
+      - /home/liam/docker/volumes/example:/config
+
+    # Port mappings - ONLY if not using Traefik
+    # Check for port conflicts before assigning
+    # ports:
+    #   - "8080:80"
+
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  web:
+    # External network - DO NOT try to create it
+    name: web
+    external: true
+
+volumes:
+  # Named volumes - follow naming convention: {stack_name}_{purpose}
+  example_data:
+    driver: local

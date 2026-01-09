@@ -1,0 +1,68 @@
+# System Configuration for Docker Management
+# This file provides context to Claude Code about the Docker environment
+
+network:
+  # Internal network IP - to be configured during deployment
+  internal_ip: "192.168.1.xxx"  # UPDATE THIS
+  portainer_url: "http://192.168.1.xxx:9000"  # UPDATE THIS
+  domain_pattern: "*.bramleyvale.com"
+  traefik_network: "web"
+
+docker:
+  socket_path: "/var/run/docker.sock"
+  default_network: "web"
+  default_restart_policy: "unless-stopped"
+
+portainer:
+  endpoint_id: 1
+  default_endpoint: "primary"
+
+paths:
+  stacks_dir: "/home/liam/docker/stacks"
+  volumes_dir: "/home/liam/docker/volumes"
+
+naming_conventions:
+  containers: "lowercase-with-hyphens"
+  stacks: "lowercase_with_underscores"
+  volumes: "{stack_name}_{purpose}"
+  services: "lowercase-with-hyphens"
+
+traefik:
+  enabled: true
+  default_entrypoint: "web"
+  domain_suffix: ".bramleyvale.com"
+  labels_pattern:
+    enable: "traefik.enable=true"
+    router_rule: "traefik.http.routers.{service}.rule=Host(`{service}.bramleyvale.com`)"
+    entrypoint: "traefik.http.routers.{service}.entrypoints=web"
+    loadbalancer: "traefik.http.services.{service}.loadbalancer.server.port={port}"
+
+deployment_rules:
+  - "All services must connect to the external 'web' network"
+  - "Network 'web' is already created externally - DO NOT try to create it"
+  - "Services behind Traefik should not expose ports directly"
+  - "Services not using Traefik need explicit port mappings"
+  - "Always check for port conflicts before assigning ports"
+  - "Container names must be unique across the system"
+  - "Include health checks where applicable"
+  - "Store compose files in /home/liam/docker/stacks/{stack_name}/"
+  - "Store persistent data in /home/liam/docker/volumes/{stack_name}/"
+
+common_ports:
+  # Reserved/common ports to be aware of
+  http: 80
+  https: 443
+  portainer: 9000
+  portainer_agent: 9001
+  traefik_http: 8080
+  traefik_https: 8443
+
+best_practices:
+  - "Use official images when possible"
+  - "Pin image versions for production"
+  - "Always include restart policies"
+  - "Add health checks for web services"
+  - "Use named volumes for persistent data"
+  - "Implement proper logging"
+  - "Set resource limits for production"
+  - "Use secrets for sensitive data"
