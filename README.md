@@ -100,15 +100,19 @@ STACKS_DIR=/home/liam/docker/stacks
 VOLUMES_DIR=/home/liam/docker/volumes
 ```
 
-### 3. Update System Configuration
+### 3. Update System Configuration (Optional)
 
-Edit `src/config/system_config.yaml` to match your environment:
+The default configuration uses `host.docker.internal` to access services on your host machine. This works automatically on Docker Desktop and Linux with the provided `extra_hosts` configuration.
+
+If you need to customize, edit `src/config/system_config.yaml`:
 
 ```yaml
 network:
-  internal_ip: "192.168.1.xxx"  # Your actual IP
-  portainer_url: "http://192.168.1.xxx:9000"
+  internal_ip: "host.docker.internal"  # Access host from container
+  portainer_url: "http://host.docker.internal:9000"
 ```
+
+**Note:** You don't need to use specific IP addresses like `192.168.1.xxx` - `host.docker.internal` handles this automatically!
 
 ### 4. Create External Network (if needed)
 
@@ -120,10 +124,15 @@ docker network create web
 
 ### 5. Deploy the MCP Server
 
-Using Docker Compose:
+#### Option A: Production (Pre-built Image) - RECOMMENDED
+
+Uses the image built by GitHub Actions (fast, no build time):
 
 ```bash
-# Build and start
+# Pull the latest image (optional - compose will pull automatically)
+docker pull ghcr.io/liamgwallace/docker-assistant-claude-mcp:latest
+
+# Start the service
 docker compose up -d
 
 # View logs
@@ -133,15 +142,26 @@ docker compose logs -f
 curl http://localhost:8000/health
 ```
 
-Using pre-built image from GitHub Container Registry:
+The default `docker-compose.yml` uses: `ghcr.io/liamgwallace/docker-assistant-claude-mcp:latest`
+
+**Note:** If the image is private, authenticate first:
+```bash
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+#### Option B: Development (Local Build)
+
+Build from source for testing changes:
 
 ```bash
-# Pull the image
-docker pull ghcr.io/yourusername/docker-assistant-claude-mcp:latest
+# Build and start using dev compose file
+docker compose -f docker-compose.dev.yml up -d --build
 
-# Update docker-compose.yml to use the pulled image
-# Then start
-docker compose up -d
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+
+# Stop
+docker compose -f docker-compose.dev.yml down
 ```
 
 ### 6. Verify Installation
@@ -164,7 +184,7 @@ docker logs docker-mcp-server
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | - | Anthropic API key for Claude Code |
-| `PORTAINER_URL` | No | `http://localhost:9000` | Portainer instance URL |
+| `PORTAINER_URL` | No | `http://host.docker.internal:9000` | Portainer instance URL |
 | `PORTAINER_TOKEN` | No | - | Portainer API access token |
 | `PORTAINER_ENDPOINT_ID` | No | `1` | Portainer endpoint ID |
 | `DOCKER_SOCKET_PATH` | No | `/var/run/docker.sock` | Docker socket path |
@@ -174,6 +194,30 @@ docker logs docker-mcp-server
 | `LOG_LEVEL` | No | `INFO` | Logging level |
 | `MAX_JOB_AGE_HOURS` | No | `24` | Auto-cleanup old jobs after N hours |
 | `JOB_CLEANUP_INTERVAL_MINUTES` | No | `60` | Job cleanup interval |
+
+### Container-to-Host Networking
+
+The MCP server container needs to communicate with services running on your host machine (like Portainer). We use `host.docker.internal` which is a special DNS name that resolves to the host.
+
+**How it works:**
+```yaml
+# docker-compose.yml includes:
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+**Then use in your configuration:**
+```bash
+PORTAINER_URL=http://host.docker.internal:9000
+```
+
+**Alternatives (if needed):**
+- Docker Desktop: `host.docker.internal` works by default
+- Linux: Enabled via `extra_hosts` (already configured)
+- Manual IP: You can still use `http://192.168.1.xxx:9000` if preferred
+
+**Why NOT use `localhost`?**
+`localhost` inside a container refers to the container itself, not the host machine.
 
 ### Generating Portainer API Token
 

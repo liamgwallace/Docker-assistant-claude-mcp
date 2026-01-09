@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     portainer_token: Optional[str] = None
 
     # Portainer Configuration
-    portainer_url: str = "http://localhost:9000"
+    portainer_url: str = "http://host.docker.internal:9000"
     portainer_endpoint_id: int = 1
 
     # Docker Configuration
