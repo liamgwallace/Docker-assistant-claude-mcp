@@ -53,10 +53,7 @@ async def lifespan(app):
 
 
 # Initialize FastMCP server
-mcp = FastMCP(
-    "Docker Management Server",
-    dependencies=[],
-)
+mcp = FastMCP("Docker Management Server")
 
 
 @mcp.tool()
