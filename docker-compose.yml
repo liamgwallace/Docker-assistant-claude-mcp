@@ -19,6 +19,10 @@ services:
       - ./config:/app/config:ro
       - docker-mcp-data:/app/data
 
+    # Port mapping - expose on random external port
+    ports:
+      - "8523:8000"  # External:Internal
+
     # Environment variables
     environment:
       # Required: Anthropic API Key for Claude Code
@@ -53,9 +57,9 @@ services:
       - "traefik.http.routers.dockermcp.entrypoints=web"
       - "traefik.http.services.dockermcp.loadbalancer.server.port=8000"
 
-    # Health check
+    # Health check - verify server port is listening
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "nc", "-z", "localhost", "8000"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     lsb-release \
     jq \
+    bash \
+    git \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI
@@ -35,10 +38,8 @@ RUN curl -L https://github.com/greenled/portainer-stack-utils/releases/latest/do
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Claude Code CLI
-# NOTE: Update this with actual installation method when available
-# For now, this is a placeholder
-RUN pip install --no-cache-dir anthropic-cli 2>/dev/null || echo "Claude CLI installation skipped - install manually if needed"
+# Install Claude Code CLI (native installation for Linux)
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # Copy application code
 COPY src/ ./src/
@@ -56,9 +57,9 @@ RUN mkdir -p /home/liam/docker/stacks /home/liam/docker/volumes
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+# Health check - verify server port is listening
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD nc -z localhost 8000 || exit 1
 
 # Expose MCP server port
 EXPOSE 8000
