@@ -156,7 +156,6 @@ Execute this task now and provide your response in markdown format.
         try:
             # Build command arguments
             cmd_args = [
-                "IS_SANDBOX=1",
                 self.cli_path,
                 "-p",  # Print mode for non-interactive execution
                 "--dangerously-skip-permissions",
@@ -167,13 +166,18 @@ Execute this task now and provide your response in markdown format.
             # Add --resume flag if we have a session_id to continue
             if session_id:
                 cmd_args.extend(["--resume", session_id])
-                        
+
+            # Set up environment with IS_SANDBOX=1
+            env = os.environ.copy()
+            env["IS_SANDBOX"] = "1"
+            
             # Execute Claude Code CLI with the prompt
             process = await asyncio.create_subprocess_exec(
                 *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
 
             # Send prompt via stdin and get response
