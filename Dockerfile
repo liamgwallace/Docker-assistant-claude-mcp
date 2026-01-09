@@ -60,10 +60,6 @@ RUN mkdir -p /home/liam/docker/stacks /home/liam/docker/volumes
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Health check - verify server port is listening
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD nc -z localhost 8000 || exit 1
-
 # Expose MCP server port
 EXPOSE 8000
 
