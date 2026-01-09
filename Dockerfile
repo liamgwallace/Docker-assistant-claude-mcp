@@ -41,6 +41,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Claude Code CLI (native installation for Linux)
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
+# Add Claude Code CLI to PATH (installs to ~/.local/bin for root user)
+ENV PATH="/root/.local/bin:${PATH}"
+
 # Copy application code
 COPY src/ ./src/
 COPY docs/ ./docs/
