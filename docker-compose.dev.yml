@@ -1,10 +1,15 @@
 version: '3.8'
 
+# Local development compose file - builds from source
+# Usage: docker compose -f docker-compose.dev.yml up -d
+
 services:
   docker-mcp-server:
-    # Use pre-built image from GitHub Container Registry
-    image: ghcr.io/liamgwallace/docker-assistant-claude-mcp:latest
-    container_name: docker-mcp-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: docker-mcp-server:dev
+    container_name: docker-mcp-server-dev
     restart: unless-stopped
 
     # Mount Docker socket for container management
@@ -17,24 +22,15 @@ services:
 
     # Environment variables
     environment:
-      # Required: Anthropic API Key for Claude Code
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
-
-      # Portainer Configuration
       - PORTAINER_URL=${PORTAINER_URL:-http://192.168.1.1:9000}
       - PORTAINER_TOKEN=${PORTAINER_TOKEN:-}
       - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID:-1}
-
-      # Docker Configuration
       - DOCKER_SOCKET_PATH=/var/run/docker.sock
       - DOCKER_DEFAULT_NETWORK=web
-
-      # Server Configuration
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-
-      # Job Management
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
       - MAX_JOB_AGE_HOURS=${MAX_JOB_AGE_HOURS:-24}
       - JOB_CLEANUP_INTERVAL_MINUTES=${JOB_CLEANUP_INTERVAL_MINUTES:-60}
 
@@ -42,12 +38,12 @@ services:
     networks:
       - web
 
-    # Traefik labels for web access (optional)
+    # Traefik labels (optional)
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dockermcp.rule=Host(`${DOCKER_MCP_DOMAIN:-dockermcp.bramleyvale.com}`)"
-      - "traefik.http.routers.dockermcp.entrypoints=web"
-      - "traefik.http.services.dockermcp.loadbalancer.server.port=8000"
+      - "traefik.http.routers.dockermcp-dev.rule=Host(`${DOCKER_MCP_DOMAIN:-dockermcp-dev.bramleyvale.com}`)"
+      - "traefik.http.routers.dockermcp-dev.entrypoints=web"
+      - "traefik.http.services.dockermcp-dev.loadbalancer.server.port=8000"
 
     # Health check
     healthcheck:
@@ -61,8 +57,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # User (run as root to access Docker socket)
-    # Note: In production, consider using Docker socket proxy for better security
+    # Run as root for Docker socket access
     user: root
 
 volumes:

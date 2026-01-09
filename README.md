@@ -120,10 +120,15 @@ docker network create web
 
 ### 5. Deploy the MCP Server
 
-Using Docker Compose:
+#### Option A: Production (Pre-built Image) - RECOMMENDED
+
+Uses the image built by GitHub Actions (fast, no build time):
 
 ```bash
-# Build and start
+# Pull the latest image (optional - compose will pull automatically)
+docker pull ghcr.io/liamgwallace/docker-assistant-claude-mcp:latest
+
+# Start the service
 docker compose up -d
 
 # View logs
@@ -133,15 +138,26 @@ docker compose logs -f
 curl http://localhost:8000/health
 ```
 
-Using pre-built image from GitHub Container Registry:
+The default `docker-compose.yml` uses: `ghcr.io/liamgwallace/docker-assistant-claude-mcp:latest`
+
+**Note:** If the image is private, authenticate first:
+```bash
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+#### Option B: Development (Local Build)
+
+Build from source for testing changes:
 
 ```bash
-# Pull the image
-docker pull ghcr.io/yourusername/docker-assistant-claude-mcp:latest
+# Build and start using dev compose file
+docker compose -f docker-compose.dev.yml up -d --build
 
-# Update docker-compose.yml to use the pulled image
-# Then start
-docker compose up -d
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+
+# Stop
+docker compose -f docker-compose.dev.yml down
 ```
 
 ### 6. Verify Installation
