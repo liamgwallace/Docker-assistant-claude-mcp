@@ -145,6 +145,7 @@ Execute this task now and provide your response in markdown format.
             process = await asyncio.create_subprocess_exec(
                 self.cli_path,
                 "-p",  # Print mode for non-interactive execution
+                "--dangerously-skip-permissions",
                 "--model", settings.claude_model,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
