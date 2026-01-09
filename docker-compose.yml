@@ -7,6 +7,10 @@ services:
     container_name: docker-mcp-server
     restart: unless-stopped
 
+    # Enable host.docker.internal on Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     # Mount Docker socket for container management
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -21,7 +25,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
 
       # Portainer Configuration
-      - PORTAINER_URL=${PORTAINER_URL:-http://192.168.1.1:9000}
+      - PORTAINER_URL=${PORTAINER_URL:-http://host.docker.internal:9000}
       - PORTAINER_TOKEN=${PORTAINER_TOKEN:-}
       - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID:-1}
 

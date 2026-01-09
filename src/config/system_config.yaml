@@ -2,9 +2,9 @@
 # This file provides context to Claude Code about the Docker environment
 
 network:
-  # Internal network IP - to be configured during deployment
-  internal_ip: "192.168.1.xxx"  # UPDATE THIS
-  portainer_url: "http://192.168.1.xxx:9000"  # UPDATE THIS
+  # Use host.docker.internal to access services on the host machine
+  internal_ip: "host.docker.internal"
+  portainer_url: "http://host.docker.internal:9000"
   domain_pattern: "*.bramleyvale.com"
   traefik_network: "web"
 
