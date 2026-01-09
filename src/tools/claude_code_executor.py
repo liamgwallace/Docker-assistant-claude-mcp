@@ -2,12 +2,22 @@
 Claude Code CLI wrapper for executing Docker management tasks
 """
 import asyncio
+import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 import yaml
 
 from src.config.environment import settings
+
+
+@dataclass
+class ExecutionResult:
+    """Result from Claude Code CLI execution"""
+    content: str  # The response content (markdown)
+    session_id: Optional[str] = None  # Claude session ID for continuation
+    is_error: bool = False  # Whether this is an error response
 
 
 class ClaudeCodeExecutor:
@@ -125,28 +135,40 @@ Execute this task now and provide your response in markdown format.
 
         return prompt
 
-    async def execute_sync(self, user_request: str) -> str:
+    async def execute_sync(
+        self,
+        user_request: str,
+        session_id: Optional[str] = None
+    ) -> ExecutionResult:
         """
         Execute Docker management task synchronously via Claude Code
 
         Args:
             user_request: User's natural language request
+            session_id: Optional session ID to resume a conversation
 
         Returns:
-            Claude Code's response (markdown formatted)
+            ExecutionResult with content and session_id
         """
         prompt = self._build_prompt(user_request)
 
         try:
-            # Execute Claude Code CLI with the prompt
-            # Using subprocess to run the CLI
-            # Use -p (print mode) for non-interactive execution
-            # Pass prompt via stdin to avoid Windows command line length limits
-            process = await asyncio.create_subprocess_exec(
+            # Build command arguments
+            cmd_args = [
                 self.cli_path,
                 "-p",  # Print mode for non-interactive execution
                 "--dangerously-skip-permissions",
                 "--model", settings.claude_model,
+                "--output-format", "json",  # Get JSON output with session_id
+            ]
+
+            # Add --resume flag if we have a session_id to continue
+            if session_id:
+                cmd_args.extend(["--resume", session_id])
+
+            # Execute Claude Code CLI with the prompt
+            process = await asyncio.create_subprocess_exec(
+                *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
@@ -157,7 +179,8 @@ Execute this task now and provide your response in markdown format.
 
             if process.returncode != 0:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                return f"""## Status: Failed ❌
+                return ExecutionResult(
+                    content=f"""## Status: Failed ❌
 
 ### Error
 Claude Code execution failed with return code {process.returncode}
@@ -171,13 +194,17 @@ Claude Code execution failed with return code {process.returncode}
 - Verify Claude Code CLI is installed and in PATH
 - Check ANTHROPIC_API_KEY is set correctly
 - Review the error message above for specific issues
-"""
+""",
+                    is_error=True
+                )
 
-            result = stdout.decode()
-            return result
+            # Parse JSON response to extract session_id and content
+            raw_output = stdout.decode()
+            return self._parse_json_response(raw_output)
 
         except FileNotFoundError:
-            return f"""## Status: Failed ❌
+            return ExecutionResult(
+                content=f"""## Status: Failed ❌
 
 ### Error
 Claude Code CLI not found at path: `{self.cli_path}`
@@ -189,10 +216,13 @@ Claude Code CLI not found at path: `{self.cli_path}`
 
 ### Installation
 Visit: https://github.com/anthropics/claude-code for installation instructions
-"""
+""",
+                is_error=True
+            )
 
         except Exception as e:
-            return f"""## Status: Failed ❌
+            return ExecutionResult(
+                content=f"""## Status: Failed ❌
 
 ### Error
 Unexpected error executing Claude Code CLI
@@ -206,9 +236,61 @@ Unexpected error executing Claude Code CLI
 - Check logs for detailed error information
 - Verify all dependencies are installed
 - Ensure proper permissions for Docker socket access
-"""
+""",
+                is_error=True
+            )
 
-    async def execute_async(self, user_request: str, job_id: str) -> str:
+    def _parse_json_response(self, raw_output: str) -> ExecutionResult:
+        """
+        Parse JSON response from Claude Code CLI
+
+        Args:
+            raw_output: Raw stdout from Claude CLI
+
+        Returns:
+            ExecutionResult with parsed content and session_id
+        """
+        try:
+            response_data = json.loads(raw_output)
+
+            # Extract content - try various possible keys
+            content = (
+                response_data.get("result") or
+                response_data.get("content") or
+                raw_output
+            )
+
+            # If content is a list (MCP format), extract text
+            if isinstance(content, list):
+                text_parts = []
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
+                content = "\n".join(text_parts) if text_parts else str(content)
+
+            # Extract session ID
+            session_id = response_data.get("session_id")
+
+            return ExecutionResult(
+                content=content,
+                session_id=session_id,
+                is_error=False
+            )
+
+        except json.JSONDecodeError:
+            # If JSON parsing fails, return raw output (fallback for non-JSON responses)
+            return ExecutionResult(
+                content=raw_output,
+                session_id=None,
+                is_error=False
+            )
+
+    async def execute_async(
+        self,
+        user_request: str,
+        job_id: str,
+        session_id: Optional[str] = None
+    ) -> ExecutionResult:
         """
         Execute Docker management task asynchronously
         This is a wrapper around execute_sync for background execution
@@ -216,13 +298,14 @@ Unexpected error executing Claude Code CLI
         Args:
             user_request: User's natural language request
             job_id: Job ID for tracking
+            session_id: Optional session ID to resume a conversation
 
         Returns:
-            Claude Code's response (markdown formatted)
+            ExecutionResult with content and session_id
         """
-        # For async execution, we just call the sync version
+        # For async execution, we just call the sync version with session support
         # The async behavior is handled by the job tracker
-        return await self.execute_sync(user_request)
+        return await self.execute_sync(user_request, session_id=session_id)
 
     def validate_environment(self) -> tuple[bool, str]:
         """
