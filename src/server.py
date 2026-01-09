@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from pydantic import Field
+from typing import Optional
 
 from src.tools.docker_manager import DockerManager
 from src.tools.job_tracker import JobTracker
@@ -62,6 +63,10 @@ mcp = FastMCP("Docker Management Server")
 async def docker_execute(
     request: str = Field(
         description="User's natural language request for Docker management (e.g., 'Deploy nginx web server named my-nginx')"
+    ),
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Optional Claude session ID to resume a previous conversation. Leave empty to start a new conversation. The response will include a session_id that can be used to continue the conversation."
     )
 ) -> dict:
     """
@@ -74,12 +79,18 @@ async def docker_execute(
     - Simple deployments
     - Tasks expected to complete in < 30 seconds
 
-    Returns a markdown-formatted response with status, output, and details.
+    Session Management:
+    - Leave session_id empty to start a new conversation
+    - Pass a previous session_id to continue an existing conversation
+    - The response includes a session_id for follow-up messages
+
+    Returns a markdown-formatted response with status, output, details, and session_id.
     """
-    logger.info(f"docker_execute called with request: {request[:100]}...")
+    session_info = f" (session: {session_id})" if session_id else ""
+    logger.info(f"docker_execute called with request: {request[:100]}...{session_info}")
 
     try:
-        result = await docker_manager.docker_execute(request)
+        result = await docker_manager.docker_execute(request, session_id=session_id)
         return result
     except Exception as e:
         logger.error(f"Error in docker_execute: {e}", exc_info=True)
@@ -97,6 +108,10 @@ async def docker_execute(
 async def docker_execute_async(
     request: str = Field(
         description="User's natural language request for Docker management to execute in background"
+    ),
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Optional Claude session ID to resume a previous conversation. Leave empty to start a new conversation. The completed job will include a session_id for follow-up messages."
     )
 ) -> dict:
     """
@@ -109,12 +124,18 @@ async def docker_execute_async(
     - Stack updates with image pulls
     - Tasks that may take > 30 seconds
 
-    Returns a job ID that can be used with docker_job_status to check progress.
+    Session Management:
+    - Leave session_id empty to start a new conversation
+    - Pass a previous session_id to continue an existing conversation
+    - When job completes, docker_job_status returns session_id for follow-up
+
+    Returns a job ID that can be used with docker_job_status to check progress and get session_id.
     """
-    logger.info(f"docker_execute_async called with request: {request[:100]}...")
+    session_info = f" (session: {session_id})" if session_id else ""
+    logger.info(f"docker_execute_async called with request: {request[:100]}...{session_info}")
 
     try:
-        result = await docker_manager.docker_execute_async(request)
+        result = await docker_manager.docker_execute_async(request, session_id=session_id)
         return result
     except Exception as e:
         logger.error(f"Error in docker_execute_async: {e}", exc_info=True)
@@ -142,8 +163,11 @@ async def docker_job_status(
     - Execution start and completion times
     - Full output for completed jobs
     - Error messages for failed jobs
+    - Session ID for completed jobs (enables conversation continuation)
 
     Use this tool repeatedly to poll for job completion.
+    When the job completes, the response includes a session_id that can be
+    passed to docker_execute or docker_execute_async to continue the conversation.
     """
     logger.info(f"docker_job_status called for job: {job_id}")
 

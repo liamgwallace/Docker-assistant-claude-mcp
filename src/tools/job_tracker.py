@@ -31,7 +31,9 @@ class Job:
         output: Optional[str] = None,
         error: Optional[str] = None,
         started_at: Optional[datetime] = None,
-        completed_at: Optional[datetime] = None
+        completed_at: Optional[datetime] = None,
+        input_session_id: Optional[str] = None,  # Session ID provided for resumption
+        output_session_id: Optional[str] = None  # Session ID returned from Claude
     ):
         self.job_id = job_id
         self.request = request
@@ -40,6 +42,8 @@ class Job:
         self.error = error
         self.started_at = started_at or datetime.now()
         self.completed_at = completed_at
+        self.input_session_id = input_session_id  # The session ID passed in to resume
+        self.output_session_id = output_session_id  # The session ID returned from execution
 
     def to_dict(self) -> Dict:
         """Convert job to dictionary for JSON serialization"""
@@ -50,7 +54,9 @@ class Job:
             "output": self.output,
             "error": self.error,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "input_session_id": self.input_session_id,
+            "output_session_id": self.output_session_id
         }
 
     @classmethod
@@ -63,7 +69,9 @@ class Job:
             output=data.get("output"),
             error=data.get("error"),
             started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
-            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
+            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            input_session_id=data.get("input_session_id"),
+            output_session_id=data.get("output_session_id")
         )
 
 
@@ -78,18 +86,24 @@ class JobTracker:
         """Get path to job file"""
         return self.jobs_dir / f"{job_id}.json"
 
-    def create_job(self, request: str) -> Job:
+    def create_job(self, request: str, input_session_id: Optional[str] = None) -> Job:
         """
         Create a new job
 
         Args:
             request: User's request description
+            input_session_id: Optional Claude session ID to resume
 
         Returns:
             Created job
         """
         job_id = str(uuid.uuid4())
-        job = Job(job_id=job_id, request=request, status=JobStatus.PENDING)
+        job = Job(
+            job_id=job_id,
+            request=request,
+            status=JobStatus.PENDING,
+            input_session_id=input_session_id
+        )
         self._save_job(job)
         return job
 
@@ -121,7 +135,8 @@ class JobTracker:
         job_id: str,
         status: JobStatus,
         output: Optional[str] = None,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        output_session_id: Optional[str] = None
     ) -> bool:
         """
         Update job status
@@ -131,6 +146,7 @@ class JobTracker:
             status: New status
             output: Job output (for completed jobs)
             error: Error message (for failed jobs)
+            output_session_id: Claude session ID returned from execution
 
         Returns:
             True if updated, False if job not found
@@ -153,6 +169,9 @@ class JobTracker:
 
         if error:
             job.error = error
+
+        if output_session_id:
+            job.output_session_id = output_session_id
 
         self._save_job(job)
         return True
