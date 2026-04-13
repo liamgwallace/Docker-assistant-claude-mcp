@@ -3,12 +3,12 @@ Claude Code CLI wrapper for executing Docker management tasks
 """
 import asyncio
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 import yaml
-import os
 
 from src.config.environment import settings
 
@@ -170,7 +170,9 @@ Execute this task now and provide your response in markdown format.
             # Set up environment with IS_SANDBOX=1
             env = os.environ.copy()
             env["IS_SANDBOX"] = "1"
-            
+            if settings.anthropic_api_key:
+                env["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
+
             # Execute Claude Code CLI with the prompt
             process = await asyncio.create_subprocess_exec(
                 *cmd_args,
@@ -198,7 +200,8 @@ Claude Code execution failed with return code {process.returncode}
 
 ### Troubleshooting
 - Verify Claude Code CLI is installed and in PATH
-- Check ANTHROPIC_API_KEY is set correctly
+- If using API auth, check ANTHROPIC_API_KEY is set correctly
+- If using subscription auth, ensure Claude Code CLI is already logged in
 - Review the error message above for specific issues
 """,
                     is_error=True
@@ -346,9 +349,19 @@ Unexpected error executing Claude Code CLI
         if not docker_socket.exists():
             errors.append(f"Docker socket not found at: {settings.docker_socket_path}")
 
-        # Check API key
-        if not settings.anthropic_api_key:
-            errors.append("ANTHROPIC_API_KEY not set")
+        # Check Claude authentication configuration
+        auth_mode = settings.claude_auth_mode.lower()
+        if auth_mode == "api":
+            if not settings.anthropic_api_key:
+                errors.append("ANTHROPIC_API_KEY not set and CLAUDE_AUTH_MODE=api")
+        elif auth_mode == "subscription":
+            # No env var required; Claude Code CLI must already be authenticated.
+            pass
+        elif auth_mode == "auto":
+            # Accept either API key auth or an existing Claude Code CLI login session.
+            pass
+        else:
+            errors.append("Invalid CLAUDE_AUTH_MODE. Use: auto, api, or subscription")
 
         if errors:
             return False, "\n".join(errors)

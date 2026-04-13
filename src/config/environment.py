@@ -1,17 +1,17 @@
 """
 Configuration management for Docker Management MCP Server
 """
-import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
-    # API Keys
-    anthropic_api_key: str
+    # API Keys / Auth
+    anthropic_api_key: Optional[str] = None
+    claude_auth_mode: Literal["auto", "api", "subscription"] = "auto"
     portainer_token: Optional[str] = None
 
     # Portainer Configuration

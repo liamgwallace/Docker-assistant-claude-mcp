@@ -85,11 +85,15 @@ cp .env.example .env
 nano .env
 ```
 
-**Required configuration:**
+**Recommended configuration:**
 
 ```bash
-# Anthropic API Key (REQUIRED)
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+# Claude Code authentication
+# auto = use API key if present, otherwise use existing Claude Code login
+CLAUDE_AUTH_MODE=auto
+
+# Optional in auto mode, required in api mode
+ANTHROPIC_API_KEY=
 
 # Portainer Configuration (RECOMMENDED)
 PORTAINER_URL=http://192.168.1.xxx:9000
@@ -183,7 +187,8 @@ docker logs docker-mcp-server
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | - | Anthropic API key for Claude Code |
+| `CLAUDE_AUTH_MODE` | No | `auto` | Claude auth mode: `auto`, `api`, or `subscription` |
+| `ANTHROPIC_API_KEY` | No* | - | Anthropic API key for Claude Code; required only in `api` mode |
 | `PORTAINER_URL` | No | `http://host.docker.internal:9000` | Portainer instance URL |
 | `PORTAINER_TOKEN` | No | - | Portainer API access token |
 | `PORTAINER_ENDPOINT_ID` | No | `1` | Portainer endpoint ID |
@@ -198,6 +203,25 @@ docker logs docker-mcp-server
 ### Container-to-Host Networking
 
 The MCP server container needs to communicate with services running on your host machine (like Portainer). We use `host.docker.internal` which is a special DNS name that resolves to the host.
+
+### Claude Code Subscription Auth in Docker
+
+If you use `CLAUDE_AUTH_MODE=subscription` (or `auto` without an API key), the container must have a persisted Claude Code login session.
+
+The compose files now mount persistent Docker volumes for common Claude Code auth locations:
+- `/root/.config/claude`
+- `/root/.claude`
+
+To authenticate:
+
+```bash
+docker exec -it docker-mcp-server bash
+claude
+# complete the login flow inside the container
+```
+
+Because those directories are persisted as volumes, the login should survive normal container restarts and recreations.
+
 
 **How it works:**
 ```yaml

@@ -23,6 +23,9 @@ services:
       - ${VOLUMES_DIR:-/home/liam/docker/volumes}:/home/liam/docker/volumes
       - ./config:/app/config:ro
       - docker-mcp-data:/app/data
+      # Persist Claude Code login/session state for subscription auth
+      - claude-code-config:/root/.config/claude
+      - claude-code-home:/root/.claude
 
     # Port mapping - expose on random external port
     ports:
@@ -30,7 +33,8 @@ services:
 
     # Environment variables
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      - CLAUDE_AUTH_MODE=${CLAUDE_AUTH_MODE:-auto}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - PORTAINER_URL=${PORTAINER_URL:-http://host.docker.internal:9000}
       - PORTAINER_TOKEN=${PORTAINER_TOKEN:-}
       - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID:-1}
@@ -62,6 +66,10 @@ services:
 
 volumes:
   docker-mcp-data:
+    driver: local
+  claude-code-config:
+    driver: local
+  claude-code-home:
     driver: local
 
 networks:
